@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Kumbh+Sans&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -12,6 +13,99 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Font utility for Kumbh Sans */
+.font-kumbh {
+  font-family: "Kumbh Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings: "YOPQ" 300;
+}
+
+.font-kumbh-medium {
+  font-family: "Kumbh Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-style: normal;
+  font-variation-settings: "YOPQ" 300;
+}
+
+.font-kumbh-bold {
+  font-family: "Kumbh Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 700;
+  font-style: normal;
+  font-variation-settings: "YOPQ" 300;
+}
+
+/* Intro animations */
+@keyframes slide-up {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.intro-slide-up {
+  animation: slide-up 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; /* forwards + backwards */
+  will-change: transform, opacity;
+}
+
+@keyframes wave {
+  0% { transform: rotate(0deg); }
+  15% { transform: rotate(10deg); }
+  30% { transform: rotate(-6deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-4deg); }
+  80% { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.hand-wave {
+  transform-origin: right bottom;
+  animation: wave 2.4s ease-in-out infinite; /* slower, more controlled */
+}
+
+/* Mid-layer rectangles (look like a background). Left->right they shrink down to reveal the main page */
+.curtain-container {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 12), minmax(0, 1fr));
+  gap: 0; /* no grid gaps */
+  --seg-overlap: 1px; /* horizontal overlap to hide seams between columns */
+}
+.curtain-seg {
+  position: relative;
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--rect-bg, #22394E);
+  transform-origin: bottom center; /* shrink towards the bottom */
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+}
+/* Pseudo element slightly overlaps neighbors to remove visible intersections */
+.curtain-seg::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--seg-overlap));
+  right: calc(-1 * var(--seg-overlap));
+  background: var(--rect-bg, #22394E);
+}
+.curtain-shrink {
+  animation: segShrink var(--seg-dur, 0.9s) cubic-bezier(.22,.61,.36,1) forwards;
+}
+@keyframes segShrink {
+  from { transform: scaleY(1); }
+  to { transform: scaleY(0); }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -23,4 +117,15 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Simple fade-in used for the waving emoji so it doesn't conflict with transform-based animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.intro-fade {
+  opacity: 0;
+  animation: fade-in 0.7s ease both; /* hidden at start, visible at end */
+  will-change: opacity;
 }
