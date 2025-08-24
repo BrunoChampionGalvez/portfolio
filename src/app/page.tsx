@@ -6,6 +6,18 @@ export default function Home() {
   // Intro overlay control
   const [curtainStarted, setCurtainStarted] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
+  
+  // Animation states for fade-in effects
+  const [headerVisible, setHeaderVisible] = useState(false);
+  const [heroGreetingVisible, setHeroGreetingVisible] = useState(false);
+  const [heroNameVisible, setHeroNameVisible] = useState(false);
+  const [heroDescriptionVisible, setHeroDescriptionVisible] = useState(false);
+  const [heroButtonsVisible, setHeroButtonsVisible] = useState(false);
+  const [heroPhotoVisible, setHeroPhotoVisible] = useState(false);
+  const [heroSectionVisible, setHeroSectionVisible] = useState(true);
+  const [experienceHeadingVisible, setExperienceHeadingVisible] = useState(false);
+  const [experienceTimelineVisible, setExperienceTimelineVisible] = useState(false);
+  const [experienceSectionVisible, setExperienceSectionVisible] = useState(true);
 
   const phrase = useMemo(() => "Hey, there 👋!", []);
 
@@ -19,6 +31,10 @@ export default function Home() {
   // Refs for scroll-driven interactions
   const heroRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const heroSectionRef = useRef<HTMLDivElement | null>(null);
+  const experienceHeadingRef = useRef<HTMLDivElement | null>(null);
+  const experienceTimelineRef = useRef<HTMLDivElement | null>(null);
+  const experienceSectionRef = useRef<HTMLDivElement | null>(null);
   const [tiltDeg, setTiltDeg] = useState(-6); // initial tilt matches hero design
   const [cardPinned, setCardPinned] = useState(false);
   const STICKY_TOP = 112; // same as top-28 used by sticky elements
@@ -30,16 +46,122 @@ export default function Home() {
 
     // total time: last rectangle finishes
     const curtainDurationMs = (segDuration + segDelay * (segmentCount - 1)) * 1000;
-    const hideIntroT = setTimeout(
-      () => setShowIntro(false),
-      (totalLetters + 0.25) * 1000 + curtainDurationMs + 100
-    );
+    const totalIntroTime = (totalLetters + 0.25) * 1000 + curtainDurationMs + 100;
+    
+    const hideIntroT = setTimeout(() => setShowIntro(false), totalIntroTime);
+    
+    // Start header animation immediately after intro
+    const headerAnimT = setTimeout(() => setHeaderVisible(true), totalIntroTime + 100);
+    
+    // Stagger hero section components
+    const heroGreetingT = setTimeout(() => setHeroGreetingVisible(true), totalIntroTime + 300);
+    const heroNameT = setTimeout(() => setHeroNameVisible(true), totalIntroTime + 500);
+    const heroDescT = setTimeout(() => setHeroDescriptionVisible(true), totalIntroTime + 700);
+    const heroButtonsT = setTimeout(() => setHeroButtonsVisible(true), totalIntroTime + 900);
+    const heroPhotoT = setTimeout(() => setHeroPhotoVisible(true), totalIntroTime + 600);
 
     return () => {
       clearTimeout(startCurtainT);
       clearTimeout(hideIntroT);
+      clearTimeout(headerAnimT);
+      clearTimeout(heroGreetingT);
+      clearTimeout(heroNameT);
+      clearTimeout(heroDescT);
+      clearTimeout(heroButtonsT);
+      clearTimeout(heroPhotoT);
     };
   }, [phrase, segDuration, segDelay, segmentCount]);
+
+  // Track scroll direction and position for proper animations
+  const [scrollDirection, setScrollDirection] = useState<'up' | 'down'>('down');
+  const lastScrollY = useRef(0);
+
+  // Keep track of enter/leave phases with the direction at transition time
+  const heroPrevVisibleRef = useRef(heroSectionVisible);
+  const [heroPhase, setHeroPhase] = useState<'enter' | 'leave' | 'idle'>('idle');
+  const [heroLastDir, setHeroLastDir] = useState<'up' | 'down'>('down');
+  useEffect(() => {
+    if (heroSectionVisible !== heroPrevVisibleRef.current) {
+      setHeroLastDir(scrollDirection);
+      setHeroPhase(heroSectionVisible ? 'enter' : 'leave');
+      heroPrevVisibleRef.current = heroSectionVisible;
+    }
+  }, [heroSectionVisible, scrollDirection]);
+
+  const expPrevVisibleRef = useRef(experienceSectionVisible);
+  const [expPhase, setExpPhase] = useState<'enter' | 'leave' | 'idle'>('idle');
+  const [expLastDir, setExpLastDir] = useState<'up' | 'down'>('down');
+  useEffect(() => {
+    if (experienceSectionVisible !== expPrevVisibleRef.current) {
+      setExpLastDir(scrollDirection);
+      setExpPhase(experienceSectionVisible ? 'enter' : 'leave');
+      expPrevVisibleRef.current = experienceSectionVisible;
+    }
+  }, [experienceSectionVisible, scrollDirection]);
+
+  // Intersection observers for scroll-triggered animations
+  useEffect(() => {
+    // Track scroll direction
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      setScrollDirection(currentScrollY > lastScrollY.current ? 'down' : 'up');
+      lastScrollY.current = currentScrollY;
+    };
+
+    // Hero section observer - fade out when leaving viewport
+    const heroObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setHeroSectionVisible(entry.isIntersecting);
+        });
+      },
+      { threshold: 0.3, rootMargin: '-10% 0px -10% 0px' }
+    );
+
+    // Experience section observer - fade in/out based on visibility
+    const experienceObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setExperienceHeadingVisible(true);
+            setTimeout(() => setExperienceTimelineVisible(true), 200);
+            setExperienceSectionVisible(true);
+          } else {
+            setExperienceHeadingVisible(false);
+            setExperienceTimelineVisible(false);
+            setExperienceSectionVisible(false);
+          }
+        });
+      },
+      { threshold: 0.2, rootMargin: '-10% 0px -10% 0px' }
+    );
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    // Observe hero copy container directly for accurate visibility
+    if (heroRef.current) {
+      heroObserver.observe(heroRef.current);
+    }
+
+    // The experience section ref is attached inside a child component;
+    // defer observation until the ref attaches
+    let expRaf = 0;
+    const tryObserveExperience = () => {
+      if (experienceSectionRef.current) {
+        experienceObserver.observe(experienceSectionRef.current);
+      } else {
+        expRaf = requestAnimationFrame(tryObserveExperience);
+      }
+    };
+    tryObserveExperience();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      heroObserver.disconnect();
+      experienceObserver.disconnect();
+      if (expRaf) cancelAnimationFrame(expRaf);
+    };
+  }, []);
 
   // Handle scroll: smoothly remove the card rotation and detect when the card is pinned at the sticky top
   useEffect(() => {
@@ -76,7 +198,11 @@ export default function Home() {
       {/* Top navigation (placeholder content) */}
       <header className="relative">
         <div className="mx-auto max-w-5xl px-6 pt-6">
-          <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3 backdrop-blur-md ring-1 ring-white/10">
+          <div className={`flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3 backdrop-blur-md ring-1 ring-white/10 transition-all duration-1000 ease-out ${
+            headerVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-4'
+          }`}>
             {/* Left: Placeholder brand mark */}
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white/10 font-kumbh text-lg">A</div>
 
@@ -99,28 +225,52 @@ export default function Home() {
       </header>
 
       {/* Two-column layout wrapper to keep the photo sticky while content scrolls */}
-      <div className="relative mx-auto max-w-5xl px-6 py-16 md:py-24">
+      <div ref={heroSectionRef} className="relative mx-auto max-w-5xl px-6 py-16 md:py-24">
         <div className="grid items-start gap-12 md:grid-cols-2">
           {/* Left column: hero copy + experience timeline */}
           <div>
-            {/* Hero copy (unchanged) */}
-            <div ref={heroRef}>
-              <p className="mb-3 font-kumbh text-lg text-neutral-300">
+            {/* Hero copy with staggered animations */}
+            <div ref={heroRef} className={`transition-all duration-1000 ease-out ${
+              heroSectionVisible 
+                ? 'opacity-100 translate-y-0' 
+                : heroPhase === 'leave'
+                  ? (heroLastDir === 'down' ? 'opacity-0 -translate-y-12' : 'opacity-0 translate-y-12')
+                  : (heroLastDir === 'down' ? 'opacity-0 translate-y-12' : 'opacity-0 -translate-y-12')
+            }`}>
+              <p className={`mb-3 font-kumbh text-lg text-neutral-300 transition-all duration-800 ease-out ${
+                heroGreetingVisible 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-6'
+              }`}>
                 Hey, there <span className="inline-block origin-bottom-right">👋</span>
               </p>
 
-              <h1 className="font-kumbh text-5xl leading-tight sm:text-6xl md:text-7xl">
-                I&apos;m <span className="bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">Bruno Champion</span>
-              </h1>
-              <h2 className="font-kumbh mt-2 text-4xl leading-tight text-white/95 sm:text-5xl md:text-6xl">
-                a Full‑Stack Developer
-              </h2>
+              <div className={`transition-all duration-800 ease-out delay-100 ${
+                heroNameVisible 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-6'
+              }`}>
+                <h1 className="font-kumbh text-5xl leading-tight sm:text-6xl md:text-7xl">
+                  I&apos;m <span className="bg-gradient-to-r from-sky-300 to-blue-400 bg-clip-text text-transparent">Bruno Champion</span>
+                </h1>
+                <h2 className="font-kumbh mt-2 text-4xl leading-tight text-white/95 sm:text-5xl md:text-6xl">
+                  a Full‑Stack Developer
+                </h2>
+              </div>
 
-              <p className="mt-6 max-w-xl text-base/7 text-neutral-300">
+              <p className={`mt-6 max-w-xl text-base/7 text-neutral-300 transition-all duration-800 ease-out delay-200 ${
+                heroDescriptionVisible 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-6'
+              }`}>
                 I partner with founders and teams to design, build, and ship reliable web products — with clean code, strong security, and an eye for performance. You can expect thoughtful communication, predictable delivery, and results you can trust.
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center gap-4">
+              <div className={`mt-8 flex flex-wrap items-center gap-4 transition-all duration-800 ease-out delay-300 ${
+                heroButtonsVisible 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-6'
+              }`}>
                 <a
                   href="#contact"
                   className="inline-flex items-center gap-2 rounded-xl bg-white text-[#08233B] px-5 py-3 font-medium shadow-sm ring-1 ring-white/20 transition hover:translate-y-[-1px] hover:shadow-md"
@@ -138,14 +288,29 @@ export default function Home() {
             </div>
 
             {/* Experience Timeline (pinned) */}
-            <ExperienceTimeline cardPinned={cardPinned} />
+            <ExperienceTimeline 
+              cardPinned={cardPinned} 
+              headingRef={experienceHeadingRef}
+              timelineRef={experienceTimelineRef}
+              headingVisible={experienceHeadingVisible}
+              timelineVisible={experienceTimelineVisible}
+              experienceSectionVisible={experienceSectionVisible}
+              scrollDirection={scrollDirection}
+              containerRef={experienceSectionRef}
+              visibilityPhase={expPhase}
+              phaseDir={expLastDir}
+            />
           </div>
 
           {/* Right column: sticky photo placeholder that tilts back to 0deg */}
           <div className="sticky top-28 self-start">
             <div
               ref={cardRef}
-              className="relative rounded-3xl bg-[#F3EBDD] p-4 shadow-xl ring-1 ring-black/10 transition-transform duration-200 will-change-transform"
+              className={`relative rounded-3xl bg-[#F3EBDD] p-4 shadow-xl ring-1 ring-black/10 transition-all duration-800 ease-out will-change-transform ${
+                heroPhotoVisible 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-6 scale-95'
+              }`}
               style={{ transform: `rotate(${tiltDeg}deg)` }}
             >
               <div className="h-[380px] w-[300px] rounded-2xl bg-[#F3EBDD] shadow-inner md:h-[420px] md:w-[340px]" aria-hidden />
@@ -232,8 +397,30 @@ function AnimatedPhrase({
   );
 }
 
-function ExperienceTimeline({ cardPinned }: { cardPinned: boolean }) {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
+function ExperienceTimeline({ 
+  cardPinned, 
+  headingRef, 
+  timelineRef, 
+  headingVisible, 
+  timelineVisible,
+  experienceSectionVisible,
+  scrollDirection,
+  containerRef,
+  visibilityPhase,
+  phaseDir,
+}: { 
+  cardPinned: boolean;
+  headingRef: React.RefObject<HTMLDivElement | null>;
+  timelineRef: React.RefObject<HTMLDivElement | null>;
+  headingVisible: boolean;
+  timelineVisible: boolean;
+  experienceSectionVisible: boolean;
+  scrollDirection: 'up' | 'down';
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  visibilityPhase: 'enter' | 'leave' | 'idle';
+  phaseDir: 'up' | 'down';
+}) {
+  const sectionRef = containerRef;
   const [offset, setOffset] = useState(0);
   const startedRef = useRef(false);
 
@@ -305,17 +492,51 @@ function ExperienceTimeline({ cardPinned }: { cardPinned: boolean }) {
   }, [scrollLength, cardPinned, topStickyOffset]);
 
   return (
-    <section id="experience" className="mt-24">
-      <h2 className="mb-6 font-kumbh text-2xl font-semibold tracking-tight text-white/90">
-        My Experience
-      </h2>
+    <section id="experience" className="mt-32" ref={sectionRef}>
+      <div 
+        ref={headingRef}
+        className={`mb-8 transition-all duration-1000 ease-out ${
+          headingVisible && experienceSectionVisible
+            ? 'opacity-100 translate-y-0' 
+            : (visibilityPhase === 'leave'
+                ? (phaseDir === 'down' 
+                    ? 'opacity-0 -translate-y-8'  // fade out upward when scrolling down
+                    : 'opacity-0 translate-y-8'   // fade out downward when scrolling up
+                  )
+                : (phaseDir === 'down'
+                    ? 'opacity-0 translate-y-6'   // fade in from below when scrolling down
+                    : 'opacity-0 -translate-y-6'  // fade in from above when scrolling up
+                  )
+              )
+        }`}
+      >
+        <h2 className="font-kumbh text-2xl font-semibold tracking-tight text-white/90">
+          My Experience
+        </h2>
+      </div>
       {/* Tall section to allow the sticky timeline to play through all entries */}
       <div
-        ref={sectionRef}
         style={{ height: containerH + scrollLength }}
       >
         {/* Sticky viewport that stays fixed until we've scrolled through the whole list */}
-        <div className="sticky" style={{ top: topStickyOffset, height: containerH }}>
+        <div 
+          ref={timelineRef}
+          className={`sticky transition-all duration-1000 ease-out delay-200 ${
+            timelineVisible && experienceSectionVisible
+              ? 'opacity-100 translate-y-0' 
+              : (visibilityPhase === 'leave'
+                  ? (phaseDir === 'down'
+                      ? 'opacity-0 -translate-y-8'  // fade out upward when scrolling down
+                      : 'opacity-0 translate-y-8'   // fade out downward when scrolling up
+                    )
+                  : (phaseDir === 'down'
+                      ? 'opacity-0 translate-y-4'   // fade in from below when scrolling down
+                      : 'opacity-0 -translate-y-4'  // fade in from above when scrolling up
+                    )
+                )
+          }`} 
+          style={{ top: topStickyOffset, height: containerH }}
+        >
           <div className="relative h-full">
             {/* Fixed vertical line */}
             <div className="absolute left-3 top-0 bottom-0 w-px bg-white/20" />
